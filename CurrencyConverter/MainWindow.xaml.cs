@@ -1,7 +1,9 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -22,11 +24,69 @@ namespace CurrencyConverter
     /// </summary>
     public partial class MainWindow : Window
     {
+
+        Root val = new Root();
+
+        public class Root
+        {
+            public Rate rates;
+            public long timestamp;
+            public string licence;
+        }
+
+        public class Rate
+        {
+            public double INR { get; set; }
+            public double JPY { get; set; }
+            public double USD { get; set; }
+            public double NZD { get; set; }
+            public double EUR { get; set; }
+            public double CAD { get; set; }
+            public double ISK { get; set; }
+            public double PHP { get; set; }
+            public double DKK { get; set; }
+            public double CZK { get; set; }
+            public double TRY { get; set; }
+        }
+
+
         public MainWindow()
         {
             InitializeComponent();
             lblCurrency.Content = "Hello";
+            //BindCurrency();
+            GetValue();
+        }
+
+        private async void GetValue()
+        {
+            val = await GetData<Root>("https://openexchangerates.org/api/latest.json?app_id=06a323b255bc41bf93bbfe8df4384ac3");
             BindCurrency();
+        }
+
+        public static async Task<Root> GetData<T>(string url)
+        {
+            var myRoot = new Root();
+            try
+            {
+                using (var client = new HttpClient()) // HttpClient class provides a base class for sending/receiving the HTTP request
+                {
+                    client.Timeout = TimeSpan.FromMinutes(1); // timespan before the request time out
+                    HttpResponseMessage response = await client.GetAsync(url);
+                    if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                    {
+                        var ResponseString = await response.Content.ReadAsStringAsync();
+                        var ResponseObject = JsonConvert.DeserializeObject<Root>(ResponseString);
+                        return ResponseObject;
+                    }
+                    return myRoot;
+                }
+            }
+            catch (Exception)
+            {
+
+                return myRoot;
+            }
         }
 
         private void BindCurrency()
@@ -36,10 +96,10 @@ namespace CurrencyConverter
             dtCurrency.Columns.Add("Value");
             //
             dtCurrency.Rows.Add("--Select--", 0);
-            dtCurrency.Rows.Add("USD", 7);
-            dtCurrency.Rows.Add("EUR", 8);
-            dtCurrency.Rows.Add("TL", 1);
-            dtCurrency.Rows.Add("ADN", 100);
+            dtCurrency.Rows.Add("USD", val.rates.USD);
+            dtCurrency.Rows.Add("EUR", val.rates.EUR);
+            dtCurrency.Rows.Add("TL", val.rates.TRY);
+            dtCurrency.Rows.Add("ADN", 0);
 
             cmbFromCurrency.ItemsSource = dtCurrency.DefaultView;
             cmbFromCurrency.DisplayMemberPath = "Text";
@@ -107,7 +167,7 @@ namespace CurrencyConverter
 
                 //Calculation for currency converter is From Currency value multiply(*) 
                 // with amount textbox value and then the total is divided(/) with To Currency value
-                ConvertedValue = (double.Parse(cmbFromCurrency.SelectedValue.ToString()) * double.Parse(txtCurrency.Text)) / double.Parse(cmbToCurrency.SelectedValue.ToString());
+                ConvertedValue = (double.Parse(cmbToCurrency.SelectedValue.ToString()) * double.Parse(txtCurrency.Text)) / double.Parse(cmbFromCurrency.SelectedValue.ToString());
 
                 //Show in label converted currency and converted currency name.
                 lblCurrency.Content = cmbToCurrency.Text + " " + ConvertedValue.ToString("N3");
